@@ -6,10 +6,12 @@ from PIL import Image
 from google import genai
 
 # ==========================================
-# 1. CẤU HÌNH API KEY (LƯU CỐ ĐỊNH)
+# 1. LẤY API KEY TỪ "KÉT SẮT" CỦA STREAMLIT
 # ==========================================
-# HÃY DÁN API KEY CỦA BẠN VÀO TRONG CẶP NGOẶC KÉP BÊN DƯỚI
-API_KEY = "AIzaSyC39Xw1K2Ir0CLs7liE-YR0rT224Pm0LwI"
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except:
+    API_KEY = ""
 
 EXCEL_FILE = "dulieu_moinhat.xlsx"
 
@@ -21,15 +23,15 @@ st.set_page_config(page_title="Nhận diện bảng biểu AI", layout="wide")
 # ==========================================
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;} /* Ẩn menu Hamburger (Fork, Settings...) */
-            footer {visibility: hidden;}    /* Ẩn chữ Hosted with Streamlit ở đáy */
-            header {visibility: hidden;}    /* Ẩn thanh header và logo GitHub ở trên cùng */
-            .stDeployButton {display:none;} /* Ẩn nút Deploy */
+            #MainMenu {visibility: hidden;} 
+            footer {visibility: hidden;}    
+            header {visibility: hidden;}    
+            .stDeployButton {display:none;} 
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-st.title("📸 Ứng dụng Quét Bảng AI (Hỗ trợ nhiều ảnh)")
+st.title("📸 Ứng dụng Quét Bảng AI")
 
 tab1, tab2 = st.tabs(["📱 Tab 1: Điện thoại (Quét ảnh)", "💻 Tab 2: Máy tính (Lấy dữ liệu)"])
 
@@ -40,28 +42,22 @@ with tab1:
     st.header("Tải lên các ảnh chứa bảng biểu")
     st.info("💡 Mẹo: Trên điện thoại, khi bấm nút 'Browse files' bên dưới, bạn có thể chọn 'Chụp ảnh' (Camera) để chụp trực tiếp, hoặc chọn nhiều ảnh cùng lúc từ Thư viện.")
     
-    # Cho phép chọn NHIỀU ẢNH (accept_multiple_files=True)
     uploaded_files = st.file_uploader("Chọn một hoặc nhiều ảnh", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
 
     if uploaded_files:
         st.write(f"📁 Đã chọn **{len(uploaded_files)}** ảnh.")
         
         if st.button("🚀 Bắt đầu quét tất cả", type="primary"):
-            if API_KEY == "ĐIỀN_API_KEY_CỦA_BẠN_VÀO_ĐÂY":
-                st.error("⚠️ Bạn chưa điền API Key vào code! Hãy mở file app.py trên GitHub và điền API Key vào biến API_KEY ở dòng số 10.")
+            if not API_KEY:
+                st.error("⚠️ Chưa cài đặt API Key trong Streamlit Secrets!")
             else:
-                # Tạo thanh tiến trình
                 progress_bar = st.progress(0, text="Đang khởi động AI...")
                 
                 try:
                     client = genai.Client(api_key=API_KEY)
                     
-                    # Mở file Excel để ghi nhiều Sheet
                     with pd.ExcelWriter(EXCEL_FILE, engine='openpyxl') as writer:
-                        
-                        # Lặp qua từng ảnh đã upload
                         for i, img_file in enumerate(uploaded_files):
-                            # Cập nhật thanh tiến trình
                             progress_bar.progress((i) / len(uploaded_files), text=f"Đang xử lý ảnh {i+1}/{len(uploaded_files)}...")
                             
                             image = Image.open(img_file)
@@ -75,7 +71,6 @@ with tab1:
                             4. Đọc thật chính xác các con số thập phân. Nếu ô trống thì để trống.
                             """
                             
-                            # Gọi AI xử lý
                             response = client.models.generate_content(
                                 model='gemini-2.5-flash',
                                 contents=[image, prompt]
@@ -83,20 +78,15 @@ with tab1:
                             
                             csv_data = response.text.strip()
                             
-                            # Dọn dẹp dữ liệu rác nếu AI trả về markdown
                             if csv_data.startswith("```"):
                                 csv_data = csv_data.split("\n", 1)[1]
                             if csv_data.endswith("```"):
                                 csv_data = csv_data.rsplit("\n", 1)[0]
                                 
-                            # Chuyển CSV thành Bảng
                             df = pd.read_csv(io.StringIO(csv_data))
-                            
-                            # Lưu vào Sheet tương ứng (Trang_1, Trang_2...)
                             sheet_name = f"Trang_{i+1}"
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
                     
-                    # Hoàn thành
                     progress_bar.progress(1.0, text="Hoàn tất!")
                     st.success(f"✅ Đã quét xong {len(uploaded_files)} ảnh và gộp thành 1 file Excel! Hãy mở Tab 2 trên máy tính để lấy dữ liệu.")
                 
@@ -116,13 +106,11 @@ with tab2:
             
     if os.path.exists(EXCEL_FILE):
         try:
-            # Đọc file Excel chứa nhiều Sheet
             xls = pd.ExcelFile(EXCEL_FILE)
             sheet_names = xls.sheet_names
             
             st.success(f"🎉 Đã tải dữ liệu thành công! File Excel gồm {len(sheet_names)} trang (sheet).")
             
-            # Nút tải file Excel về máy
             with open(EXCEL_FILE, "rb") as f:
                 st.download_button(
                     label="⬇️ Tải file Excel này về máy",
@@ -134,7 +122,6 @@ with tab2:
             
             st.markdown("---")
             
-            # Hiển thị từng Sheet ra màn hình để copy
             for sheet in sheet_names:
                 st.subheader(f"📄 {sheet}")
                 df = pd.read_excel(xls, sheet_name=sheet)
