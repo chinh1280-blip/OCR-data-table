@@ -31,7 +31,23 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-st.title("📸 Ứng dụng Quét Bảng AI")
+st.title("📸 Ứng dụng Quét Bảng AI (Tốc độ cao)")
+
+# Hàm nén ảnh để tăng tốc độ tải và xử lý
+def process_and_compress_image(uploaded_file, max_size=(2000, 2000)):
+    img = Image.open(uploaded_file)
+    # Chuyển về hệ màu RGB nếu là ảnh PNG/RGBA
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    # Giảm kích thước nếu ảnh quá lớn (giữ nguyên tỷ lệ)
+    img.thumbnail(max_size, Image.LANCZOS)
+    
+    # Lưu ảnh vào bộ nhớ đệm với định dạng JPEG và chất lượng 80%
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=80, optimize=True)
+    buffer.seek(0)
+    return buffer
 
 tab1, tab2 = st.tabs(["📱 Tab 1: Điện thoại (Quét ảnh)", "💻 Tab 2: Máy tính (Lấy dữ liệu)"])
 
@@ -40,7 +56,7 @@ tab1, tab2 = st.tabs(["📱 Tab 1: Điện thoại (Quét ảnh)", "💻 Tab 2: 
 # ==========================================
 with tab1:
     st.header("Tải lên các ảnh chứa bảng biểu")
-    st.info("💡 Mẹo: Trên điện thoại, khi bấm nút 'Browse files' bên dưới, bạn có thể chọn 'Chụp ảnh' (Camera) để chụp trực tiếp, hoặc chọn nhiều ảnh cùng lúc từ Thư viện.")
+    st.info("🚀 Đã bật chế độ nén ảnh tự động để tăng tốc độ tải lên.")
     
     uploaded_files = st.file_uploader("Chọn một hoặc nhiều ảnh", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
 
@@ -51,17 +67,19 @@ with tab1:
             if not API_KEY:
                 st.error("⚠️ Chưa cài đặt API Key trong Streamlit Secrets!")
             else:
-                progress_bar = st.progress(0, text="Đang khởi động AI...")
+                progress_bar = st.progress(0, text="Đang xử lý...")
                 
                 try:
                     client = genai.Client(api_key=API_KEY)
                     
                     with pd.ExcelWriter(EXCEL_FILE, engine='openpyxl') as writer:
                         for i, img_file in enumerate(uploaded_files):
-                            progress_bar.progress((i) / len(uploaded_files), text=f"Đang xử lý ảnh {i+1}/{len(uploaded_files)}...")
+                            # Bước 1: Nén ảnh trước khi gửi lên AI
+                            progress_bar.progress((i) / len(uploaded_files), text=f"⚡ Đang nén và gửi ảnh {i+1}/{len(uploaded_files)}...")
+                            compressed_img_buffer = process_and_compress_image(img_file)
+                            image_to_ai = Image.open(compressed_img_buffer)
                             
-                            image = Image.open(img_file)
-                            
+                            # Bước 2: Gửi cho AI xử lý
                             prompt = """
                             Hãy trích xuất dữ liệu từ bảng chính trong bức ảnh này và trả về dưới dạng CSV.
                             Yêu cầu BẮT BUỘC:
@@ -73,7 +91,7 @@ with tab1:
                             
                             response = client.models.generate_content(
                                 model='gemini-2.5-flash',
-                                contents=[image, prompt]
+                                contents=[image_to_ai, prompt]
                             )
                             
                             csv_data = response.text.strip()
@@ -88,10 +106,10 @@ with tab1:
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
                     
                     progress_bar.progress(1.0, text="Hoàn tất!")
-                    st.success(f"✅ Đã quét xong {len(uploaded_files)} ảnh và gộp thành 1 file Excel! Hãy mở Tab 2 trên máy tính để lấy dữ liệu.")
+                    st.success(f"✅ Đã quét xong {len(uploaded_files)} ảnh! Hãy mở Tab 2 trên máy tính để lấy dữ liệu.")
                 
                 except Exception as e:
-                    st.error(f"❌ Có lỗi xảy ra trong quá trình xử lý: {e}")
+                    st.error(f"❌ Có lỗi xảy ra: {e}")
 
 # ==========================================
 # TAB 2: DÀNH CHO MÁY TÍNH (LẤY DỮ LIỆU)
@@ -99,17 +117,15 @@ with tab1:
 with tab2:
     st.header("Dữ liệu bảng biểu mới nhất")
     
-    col1, col2 = st.columns([1, 5])
-    with col1:
-        if st.button("🔄 Tải lại dữ liệu"):
-            st.rerun()
+    if st.button("🔄 Tải lại dữ liệu"):
+        st.rerun()
             
     if os.path.exists(EXCEL_FILE):
         try:
             xls = pd.ExcelFile(EXCEL_FILE)
             sheet_names = xls.sheet_names
             
-            st.success(f"🎉 Đã tải dữ liệu thành công! File Excel gồm {len(sheet_names)} trang (sheet).")
+            st.success(f"🎉 Đã tải dữ liệu thành công! File Excel gồm {len(sheet_names)} trang.")
             
             with open(EXCEL_FILE, "rb") as f:
                 st.download_button(
