@@ -37,17 +37,18 @@ with tab1:
                     with open(TEMP_IMAGE, "wb") as f:
                         f.write(img_file.getbuffer())
                     
-                    # Khởi tạo OCR Tesseract với tiếng Việt (chạy ngầm trên Linux)
+                    # Khởi tạo OCR Tesseract với tiếng Việt
                     ocr = TesseractOCR(n_threads=1, lang="vie")
                     
                     # Đọc ảnh bằng img2table
                     doc = Image(TEMP_IMAGE)
                     
-                    # Trích xuất bảng và lưu thẳng ra file Excel
+                    # CẬP NHẬT QUAN TRỌNG Ở ĐÂY:
+                    # Bật borderless_tables=True và implicit_rows=True
                     doc.to_xlsx(dest=EXCEL_FILE,
                                 ocr=ocr,
-                                implicit_rows=False,
-                                borderless_tables=False,
+                                implicit_rows=True,      # Bật nhận diện hàng không có đường kẻ
+                                borderless_tables=True,  # Bật nhận diện bảng không có viền
                                 min_confidence=50)
                     
                     st.success("✅ Đã quét xong! Hãy mở Tab 2 trên máy tính để lấy dữ liệu.")
@@ -71,14 +72,19 @@ with tab2:
             sheet_names = xls.sheet_names
             
             if not sheet_names:
-                st.warning("⚠️ Không tìm thấy bảng nào trong ảnh vừa quét.")
+                st.warning("⚠️ Không tìm thấy bảng nào trong ảnh vừa quét. Hãy thử chụp lại ảnh rõ nét hơn và vuông góc hơn.")
             else:
                 st.success(f"🎉 Tìm thấy {len(sheet_names)} bảng!")
                 
                 for sheet in sheet_names:
                     st.subheader(f"Bảng: {sheet}")
                     df = pd.read_excel(xls, sheet_name=sheet)
-                    # Hiển thị dataframe để dễ dàng bôi đen copy trên máy tính
+                    
+                    # Xóa các cột/hàng trống hoàn toàn (nếu có) do nhiễu
+                    df.dropna(how='all', inplace=True)
+                    df.dropna(axis=1, how='all', inplace=True)
+                    
+                    # Hiển thị dataframe
                     st.dataframe(df, use_container_width=True)
                 
                 st.markdown("---")
