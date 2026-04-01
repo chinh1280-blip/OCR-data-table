@@ -9,7 +9,7 @@ from google import genai
 # 1. CẤU HÌNH API KEY (LƯU CỐ ĐỊNH)
 # ==========================================
 # HÃY DÁN API KEY CỦA BẠN VÀO TRONG CẶP NGOẶC KÉP BÊN DƯỚI
-API_KEY = "ĐIỀN_API_KEY_CỦA_BẠN_VÀO_ĐÂY"
+API_KEY = "AIzaSyC39Xw1K2Ir0CLs7liE-YR0rT224Pm0LwI"
 
 EXCEL_FILE = "dulieu_moinhat.xlsx"
 
