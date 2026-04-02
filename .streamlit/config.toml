@@ -1,0 +1,10 @@
+[server]
+# Bật nén dữ liệu WebSocket để truyền file qua điện thoại nhanh hơn
+enableWebsocketCompression = true
+
+# Giới hạn dung lượng tải lên mỗi file là 50MB (giúp bộ nhớ đệm không bị quá tải)
+maxUploadSize = 50
+
+[browser]
+# Tối ưu hóa việc thu thập dữ liệu sử dụng
+gatherUsageStats = false
